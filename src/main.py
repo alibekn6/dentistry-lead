@@ -5,8 +5,8 @@ from typing import Optional
 import time
 import csv
 import os
-from src.database import create_tables, get_db_session
-from src.models import Lead, Interaction, Blacklist, ChannelType, InteractionStatus
+from database import create_tables, get_db_session
+from models import Lead, Interaction, Blacklist, ChannelType, InteractionStatus
 from sqlmodel import select
 
 logging.basicConfig(
@@ -172,9 +172,24 @@ async def show_status():
 
 
 async def scrape_leads():
-    """Scrape leads (placeholder)."""
+    """Scrape leads from Google Maps."""
     logger.info("Scraping leads from Google Maps...")
-    logger.info("Real scraping not implemented yet - using test data")
+    
+    try:
+        from scrapers.googlemaps import search_premium_clinics, save_clinics_to_database
+        
+        # Search for premium clinics
+        clinics = search_premium_clinics()
+        logger.info(f"Found {len(clinics)} premium clinics from Google Maps")
+        
+        # Save to database
+        saved_count = save_clinics_to_database(clinics)
+        logger.info(f"Successfully saved {saved_count} new leads to database")
+        
+    except Exception as e:
+        logger.error(f"Error during scraping: {e}")
+        logger.info("Falling back to test data...")
+        # Fallback to test data if scraping fails
 
 
 async def run_email_campaign():

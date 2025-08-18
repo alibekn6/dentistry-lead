@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app
+      - DATABASE_URL=postgresql://dentistry_user:dentistry_pass@db:5432/dentistry_db
+      - POSTGRES_PASSWORD=dentistry_pass
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data  # For CSV exports
+    restart: "no"  # CLI app shouldn't restart automatically
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: dentistry_db
+      POSTGRES_USER: dentistry_user
+      POSTGRES_PASSWORD: dentistry_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dentistry_user -d dentistry_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
