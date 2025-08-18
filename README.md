@@ -10,6 +10,7 @@
 git clone <your-repo-url>
 cd dentistry
 docker compose up --build
+docker compose exec app uv run python src/main.py auto
 ```
 
 **Вот и всё!** Система автоматически:
@@ -99,6 +100,7 @@ docker compose run --rm app uv run python src/main.py scrape
 docker compose run --rm app uv run python src/main.py run-campaign
 docker compose run --rm app uv run python src/main.py export-csv
 docker compose run --rm app uv run python src/main.py status
+docker compose exec app uv run python src/main.py enrich-emails
 ```
 
 ## ⚙️ Конфигурация
