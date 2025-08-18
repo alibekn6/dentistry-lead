@@ -29,6 +29,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Try both variable names
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY") or os.getenv("GOOGLE_MAPS_API_KEY")
 PLACES_TEXTSEARCH_URL = "https://maps.googleapis.com/maps/api/place/textsearch/json"
+PLACE_DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json"
 
 PREMIUM_DISTRICTS: List[str] = [
     "Harley Street London",
@@ -60,6 +61,22 @@ def _http_get(url: str, params: Dict[str, Any]) -> Dict[str, Any]:
     resp = requests.get(url, params=params, timeout=30)
     resp.raise_for_status()
     return resp.json()
+
+
+def get_place_details(place_id: str) -> Dict[str, Any]:
+    """Get detailed information for a place using Place Details API."""
+    params = {
+        "place_id": place_id,
+        "key": GOOGLE_API_KEY,
+        "fields": "name,formatted_phone_number,website,formatted_address,rating,user_ratings_total,opening_hours,business_status"
+    }
+    
+    try:
+        data = _http_get(PLACE_DETAILS_URL, params)
+        return data.get("result", {})
+    except Exception as e:
+        logger.warning(f"Failed to get details for place {place_id}: {e}")
+        return {}
 
 
 def fetch_all_pages(params: Dict[str, Any], delay_seconds: float = 2.0) -> List[Dict[str, Any]]:
@@ -135,7 +152,7 @@ def build_queries() -> List[str]:
     return queries
 
 
-def search_premium_clinics(language: str = "en", per_query_delay: float = 1.0) -> List[Dict[str, Any]]:
+def search_premium_clinics(language: str = "en", per_query_delay: float = 1.0, max_results: Optional[int] = None) -> List[Dict[str, Any]]:
     if not GOOGLE_API_KEY:
         raise RuntimeError("GOOGLE_MAPS_API_KEY is not set in .env file or environment")
 
@@ -149,6 +166,12 @@ def search_premium_clinics(language: str = "en", per_query_delay: float = 1.0) -
             results = fetch_all_pages(params)
             logger.info(f"  -> fetched {len(results)} results")
             all_raw.extend(results)
+            
+            # Early exit if we have enough raw results for filtering
+            if max_results and len(all_raw) >= max_results * 2:  # 2x buffer for filtering
+                logger.info(f"Collected {len(all_raw)} raw results, stopping early for efficiency")
+                break
+                
         except requests.exceptions.RequestException as e:
             logger.warning(f"Network error on '{query}': {e}")
         except Exception as e:
@@ -163,7 +186,31 @@ def search_premium_clinics(language: str = "en", per_query_delay: float = 1.0) -
     premium = filter_premium_places(unique)
     logger.info(f"Premium filtered: {len(premium)}")
 
-    return premium
+    # Limit results for testing if requested
+    if max_results and len(premium) > max_results:
+        premium = premium[:max_results]
+        logger.info(f"Limited to {max_results} results for testing")
+
+    # Enrich with detailed information
+    logger.info("Enriching places with detailed information...")
+    enriched = []
+    for i, place in enumerate(premium):
+        place_id = place.get("place_id")
+        if place_id:
+            logger.info(f"Getting details for {i+1}/{len(premium)}: {place.get('name', 'Unknown')}")
+            details = get_place_details(place_id)
+            if details:
+                # Merge details with original place data
+                enriched_place = {**place, **details}
+                enriched.append(enriched_place)
+            else:
+                enriched.append(place)
+            time.sleep(0.5)  # Small delay to avoid rate limiting
+        else:
+            enriched.append(place)
+    
+    logger.info(f"Enriched {len(enriched)} places with detailed information")
+    return enriched
 
 
 def save_clinics_to_database(clinics: List[Dict[str, Any]]) -> int:

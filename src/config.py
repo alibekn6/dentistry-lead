@@ -11,15 +11,6 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql://dentistry_user:dentistry_pass@localhost:5432/dentistry_db"
     
-    # Scraping settings
-    google_maps_api_key: Optional[str] = None
-    
-    model_config = {
-        "env_file": ".env",
-        "env_file_encoding": "utf-8",
-        "extra": "ignore"  # Ignore extra fields from env
-    }
-    
     # Email settings
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587
@@ -38,6 +29,13 @@ class Settings(BaseSettings):
     scraping_delay_min: float = 1.0
     scraping_delay_max: float = 3.0
     max_retries: int = 3
+    max_leads_per_scraping: int = 50  # Limit number of leads to scrape
+    
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore"  # Ignore extra fields from env
+    }
     
     # Geography settings
     target_location: str = "London, UK"
